@@ -1,39 +1,39 @@
-import jwt from "jsonwebtoken";
 import User from "../db/models/user.model.js";
+import { verifyToken } from "../utils/token/token.js";
+import { JWT_REFRESH_TOKEN_SECRET } from "../config/env.js";
 
 export const refreshAuth = async (req, res, next) => {
   try {
     const { authorization } = req.headers;
-    console.log(authorization);
-    
 
     if (!authorization) {
-      return res.status(400).json({ message: "Token is required in headers" });
+      const error = new Error("authorization is required in headers");
+      error.status = 401;
+      throw error;
     }
 
     const [prefix, token] = authorization.split(" ");
 
     if (!prefix || !token || prefix.toLowerCase() !== "refresh") {
-      return res.status(400).json({ message: "Invalid refresh token format" });
+      const error = new Error("Invalid token format");
+      error.status = 400;
+      throw error;
     }
 
-    const payload = jwt.verify(token, "Mohanad23__#refresh");
+    const payload = verifyToken({ token, secret: JWT_REFRESH_TOKEN_SECRET });
 
     const user = await User.findOne({ email: payload.email });
 
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      const error = new Error("User not found");
+      error.status = 404;
+      throw error;
     }
 
     req.user = user;
-    console.log(req.user);
-    
+
     next();
   } catch (error) {
-    if (error.message === "jwt expired") {
-      return res.status(400).json({ message: "Refresh token expired" });
-    }
-
-    return res.status(500).json({ message: error.message, error });
+    next(error);
   }
 };

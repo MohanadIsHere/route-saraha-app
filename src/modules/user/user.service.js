@@ -1,13 +1,18 @@
-import jwt from "jsonwebtoken";
 import User from "../../db/models/user.model.js";
-import CryptoJS from "crypto-js";
 import sendEmail from "../../utils/sendEmail.util.js";
+import { decrypt } from "../../utils/encryption/encryption.js";
+import {
+  EMAIL,
+  ENCRYPTION_KEY,
+  JWT_ACCESS_TOKEN_SECRET,
+} from "../../config/env.js";
+import { generateToken, verifyToken } from "../../utils/token/token.js";
 export const getProfile = async (req, res, next) => {
   try {
-    const phoneNum = CryptoJS.AES.decrypt(
-      req.user.phone,
-      "Mohanad23__"
-    ).toString(CryptoJS.enc.Utf8);
+    const phoneNum = decrypt({
+      cipherText: req.user.phone,
+      secret: ENCRYPTION_KEY,
+    });
     req.user.phone = phoneNum;
     return res.status(200).json({
       message: "User retrieved successfully",
@@ -16,48 +21,47 @@ export const getProfile = async (req, res, next) => {
       },
     });
   } catch (error) {
-    return res.status(500).json({ message: error.message, error });
+    next(error);
   }
 };
 export const verifyEmail = async (req, res, next) => {
   try {
     const { token } = req.query;
     if (!token) {
-      return res.status(400).json({ message: "token is required" });
+      const error = new Error("Token is required");
+      error.statusCode = 400;
+      throw error;
     }
-    const payload = jwt.verify(token, "Mohanad23__");
+    const payload = verifyToken({ token, secret: JWT_ACCESS_TOKEN_SECRET });
     const user = await User.findOne({ email: payload.email, confirmed: false });
     if (!user) {
-      return res
-        .status(404)
-        .json({ message: "User not found or already confirmed" });
+      const error = new Error("User not found or already confirmed");
+      error.statusCode = 404;
+      throw error;
     }
     user.confirmed = true;
     await user.save();
     return res.status(200).json({ message: "Email verified successfully" });
   } catch (error) {
-    if (error.message === "jwt expired") {
-      return res.status(400).json({
-        message: "token expired , please sign in again to generate a new token",
-      });
-    }
-    return res.status(500).json({ message: error.message, error });
+    next(error);
   }
 };
-export const resendConfirmEmail = async (req,res,next) => {
+export const resendConfirmEmail = async (req, res, next) => {
   try {
-    
-    if(req.user.confirmed){
+    if (req.user.confirmed) {
       return res.status(400).json({ message: "Email already confirmed" });
     }
-    const accessToken = jwt.sign({ email: req.user.email }, "Mohanad23__");
+    const accessToken = generateToken({
+      payload: { email: req.user.email },
+      secret: JWT_ACCESS_TOKEN_SECRET,
+    });
     const link = `http://localhost:3000/users/verify-email?token=${accessToken}`;
-     await sendEmail({
-       from: '"Saraha App" <moh2n2dayman@gmail.com>',
-       to: req.user.email,
-       subject: "Verify your email – route-saraha-app",
-       text: "Click the link below to verify your email.",
-       html: `
+    await sendEmail({
+      from: `"Saraha App" <${EMAIL}>`,
+      to: req.user.email,
+      subject: "Verify your email – route-saraha-app",
+      text: "Click the link below to verify your email.",
+      html: `
   <div style="font-family: system-ui, sans-serif; background-color: #f9f9f9; padding: 30px;">
     <div style="max-width: 500px; margin: auto; background: white; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); padding: 30px;">
       <h1 style="font-size: 22px; margin-bottom: 16px; color: #111;">Confirm your email</h1>
@@ -71,10 +75,10 @@ export const resendConfirmEmail = async (req,res,next) => {
     </div>
   </div>
   `,
-     });
+    });
 
-     return res.status(200).json({ message: "Email sent successfully" });
+    return res.status(200).json({ message: "Email sent successfully" });
   } catch (error) {
-    return res.status(500).json({ message: error.message, error });
+    next(error);
   }
-}
+};

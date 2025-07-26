@@ -1,95 +1,113 @@
 import User from "../../db/models/user.model.js";
-import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
-import CryptoJS from "crypto-js";
 import sendEmail from "../../utils/sendEmail.util.js";
+import { generateToken } from "../../utils/token/token.js";
+import {
+  EMAIL,
+  ENCRYPTION_KEY,
+  JWT_ACCESS_TOKEN_SECRET,
+  JWT_EXPIRES_IN,
+  JWT_REFRESH_TOKEN_SECRET,
+  SALT_ROUNDS,
+} from "../../config/env.js";
+import { compare, hash } from "../../utils/hashing/hashing.js";
+import { encrypt } from "../../utils/encryption/encryption.js";
 
 export const signup = async (req, res, next) => {
   try {
-    const { name, email, password, confirmPassword, phone } = req.body;
+    const { name, email, password, phone } = req.body;
 
-    if (password !== confirmPassword) {
-      return res
-        .status(400)
-        .json({ message: "password does not match confirmPassword" });
-    }
     if (await User.findOne({ email })) {
-      return res.status(409).json({ message: "Email already exist" });
+      const error = new Error("Email already exists");
+      error.statusCode = 400;
+      throw error;
     }
-    const hashedPassword = bcrypt.hashSync(password, 12);
-    const phoneNum = CryptoJS.AES.encrypt(phone, "Mohanad23__").toString();
+
+    const hashedPassword = hash({
+      plainText: password,
+      saltRounds: SALT_ROUNDS,
+    });
+    const encryptedPhone = encrypt({
+      plainText: phone,
+      secret: ENCRYPTION_KEY,
+    });
 
     const user = await User.create({
-      name,
-      email,
+      ...req.body,
       password: hashedPassword,
-      phone: phoneNum,
+      phone: encryptedPhone,
     });
-    const accessToken = jwt.sign({ email }, "Mohanad23__", { expiresIn: "1h" });
-    const refreshToken = jwt.sign({ email }, "Mohanad23__#refresh", {
-      expiresIn: "1y",
+
+    const accessToken = generateToken({
+      payload: { email },
+      secret: JWT_ACCESS_TOKEN_SECRET,
+      options: { expiresIn: JWT_EXPIRES_IN },
     });
+    const refreshToken = generateToken({
+      payload: { email },
+      secret: JWT_REFRESH_TOKEN_SECRET,
+      options: { expiresIn: JWT_EXPIRES_IN },
+    });
+
     const link = `http://localhost:3000/users/verify-email?token=${accessToken}`;
 
     await sendEmail({
-      from: '"Saraha App" <moh2n2dayman@gmail.com>',
+      from: `"Saraha App" <${EMAIL}>`,
       to: email,
       subject: "Verify your email – route-saraha-app",
       text: "Click the link below to verify your email.",
-      html: `
-  <div style="font-family: system-ui, sans-serif; background-color: #f9f9f9; padding: 30px;">
-    <div style="max-width: 500px; margin: auto; background: white; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); padding: 30px;">
-      <h1 style="font-size: 22px; margin-bottom: 16px; color: #111;">Confirm your email</h1>
-      <p style="font-size: 15px; color: #555;">Welcome to <b>route-saraha-app</b>. To activate your account, please confirm your email address by clicking the button below.</p>
-      <div style="margin: 24px 0;">
-        <a href="${link}" style="background-color: #1d72b8; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; display: inline-block;">Verify Email</a>
-      </div>
-      <p style="font-size: 13px; color: #888;">If you didn't request this, you can safely ignore it.</p>
-      <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;">
-      <p style="font-size: 12px; color: #aaa; text-align: center;">© 2025 route-saraha-app</p>
-    </div>
-  </div>
-  `,
+      html: `<div>... your template ...</div>`,
     });
-
 
     return res.status(201).json({
       message: "User created successfully, check your email for verification",
+      data: { user, accessToken, refreshToken },
+    });
+  } catch (error) {
+    console.log({ error });
+    next(error);
+  }
+};
+
+export const signin = async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+
+    const user = await User.findOne({ email, confirmed: true });
+    if (!user) {
+      const error = new Error("email does not exist or not verified");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const isPasswordValid = await compare({
+      plainText: password,
+      hash: user.password,
+    });
+    if (!isPasswordValid) {
+      const error = new Error("Invalid password");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const accessToken = generateToken({
+      payload: { email },
+      secret: JWT_ACCESS_TOKEN_SECRET,
+      options: { expiresIn: JWT_EXPIRES_IN },
+    });
+    const refreshToken = generateToken({
+      payload: { email },
+      secret: JWT_REFRESH_TOKEN_SECRET,
+      options: { expiresIn: JWT_EXPIRES_IN },
+    });
+
+    return res.status(200).json({
+      message: "User signed in successfully",
       data: {
-        user,
         accessToken,
         refreshToken,
       },
     });
   } catch (error) {
-    console.log({ error });
-    return res.status(500).json({ message: error.message, error });
-  }
-};
-export const signin = async (req, res, next) => {
-  try {
-    const { email, password } = req.body;
-    const user = await User.findOne({ email, confirmed: true });
-    if (!user) {
-      return res
-        .status(404)
-        .json({ message: "email does not exist or not verified" });
-    }
-    const compareHashed = bcrypt.compare(password, user.password);
-    if (!compareHashed) {
-      return res.status(400).json({ message: "Invalid password" });
-    }
-const accessToken = jwt.sign({ email }, "Mohanad23__", { expiresIn: "1h" });
-const refreshToken = jwt.sign({ email }, "Mohanad23__#refresh", {
-  expiresIn: "1y",
-});    return res.status(200).json({
-      message: "User signed in successfully",
-      data: {
-        accessToken,
-        refreshToken
-      },
-    });
-  } catch (error) {
-    return res.status(500).json({ message: error.message, error });
+    next(error);
   }
 };

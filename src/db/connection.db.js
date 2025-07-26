@@ -1,9 +1,10 @@
 import mongoose from "mongoose";
+import { DB_URI } from "../config/env.js";
 
 const connectToDatabase = async () => {
   
   await mongoose
-    .connect("mongodb://127.0.0.1:27017/route-saraha-app")
+    .connect(DB_URI)
     .then(() => {
       console.log("Connected to database successfully ✅");
     })
