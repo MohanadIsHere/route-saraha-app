@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 const connectToDatabase = async () => {
   
   await mongoose
-    .connect("mongodb://localhost:27017/route-saraha-app")
+    .connect("mongodb://127.0.0.1:27017/route-saraha-app")
     .then(() => {
       console.log("Connected to database successfully ✅");
     })
