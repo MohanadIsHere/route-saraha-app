@@ -82,3 +82,40 @@ export const resendConfirmEmail = async (req, res, next) => {
     next(error);
   }
 };
+
+export const forgetPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      const error = new Error("email not exist");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const otp = customAlphabet("0123456789", 6);
+
+    await sendEmail({
+      from: EMAIL,
+      to: EMAIL,
+      subject: "forgetPassword",
+      html: `<p>opt: ${otp}</p>`,
+    });
+    return res.status(200).json({
+      message: "Otp send successfully , please check your email",
+      success: true,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+export const resetPassword = async (req,res,next) =>{
+  try {
+    
+  } catch (error) {
+    next(error);
+    
+  }
+}
