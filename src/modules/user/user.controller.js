@@ -5,8 +5,12 @@ import {
   EMAIL,
   ENCRYPTION_KEY,
   JWT_ACCESS_TOKEN_SECRET,
+  SALT_ROUNDS,
 } from "../../config/env.js";
 import { generateToken, verifyToken } from "../../utils/token/token.js";
+import { hash } from "../../utils/hashing/hashing.js";
+import { customAlphabet } from "nanoid";
+import { eventEmitter } from "../../utils/eventEmitter.js";
 export const getProfile = async (req, res, next) => {
   try {
     const phoneNum = decrypt({
@@ -86,6 +90,11 @@ export const resendConfirmEmail = async (req, res, next) => {
 export const forgetPassword = async (req, res, next) => {
   try {
     const { email } = req.body;
+    if (!email) {
+      const error = new Error("Email is required");
+      error.statusCode = 400;
+      throw error;
+    }
 
     const user = await User.findOne({ email });
 
@@ -95,27 +104,49 @@ export const forgetPassword = async (req, res, next) => {
       throw error;
     }
 
-    const otp = customAlphabet("0123456789", 6);
+    const otp = customAlphabet("abcdefghijklmnopqrstuvwxyz0123456789", 6)();
+    console.log(`Generated OTP: ${otp}`);
 
-    await sendEmail({
-      from: EMAIL,
-      to: EMAIL,
-      subject: "forgetPassword",
-      html: `<p>opt: ${otp}</p>`,
+    await User.updateOne({ email }, { otp });
+
+    eventEmitter.emit("sendEmail", {
+      to: user.email,
+      subject: "Forget Password",
+      html: `<p>Your OTP is: <strong>${otp}</strong></p>`,
     });
     return res.status(200).json({
-      message: "Otp send successfully , please check your email",
+      message: "Otp sent successfully , please check your email",
       success: true,
     });
   } catch (error) {
     next(error);
   }
 };
-export const resetPassword = async (req,res,next) =>{
+export const resetPassword = async (req, res, next) => {
   try {
-    
+    const { email, otp, newPassword } = req.body;
+
+    const user = await User.findOne({ email, otp });
+    if (!user) {
+      const error = new Error("Invalid email or OTP");
+      error.statusCode = 400;
+      throw error;
+    }
+    const hashedPassword = await hash({
+      plainText: newPassword,
+      saltRounds: Number(SALT_ROUNDS),
+    });
+    await User.updateOne(
+      { email },
+      { password: hashedPassword, $unset: { otp: "" }, $inc: { __v: 1 } }
+    );
+    eventEmitter.emit("sendEmail", {
+      to: user.email,
+      subject: "Password Reset Confirmation",
+      html: `<p>Your password has been reset successfully.</p>`,
+    });
+    return res.status(200).json({ message: "Password reset successfully" });
   } catch (error) {
     next(error);
-    
   }
-}
+};

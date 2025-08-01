@@ -22,9 +22,9 @@ export const signup = async (req, res, next) => {
       throw error;
     }
 
-    const hashedPassword = hash({
+    const hashedPassword = await hash({
       plainText: password,
-      saltRounds: SALT_ROUNDS,
+      saltRounds: Number(SALT_ROUNDS),
     });
     const encryptedPhone = encrypt({
       plainText: phone,
@@ -55,7 +55,7 @@ export const signup = async (req, res, next) => {
       to: email,
       subject: "Verify your email – route-saraha-app",
       text: "Click the link below to verify your email.",
-      html: `<div>... your template ...</div>`,
+      html: `<div><a href="${link}">Verify Email</a></div>`,
     });
 
     return res.status(201).json({
