@@ -2,14 +2,23 @@ import connectToDatabase from "./db/connection.db.js";
 import errorMiddleware from "./middlewares/error.middleware.js";
 import authRouter from "./modules/auth/auth.routes.js";
 import userRouter from "./modules/user/user.routes.js";
+import cors from "cors";
 
 const runServer = (express, app) => {
+  app.use(
+    cors({
+      origin: "http://localhost:3001",
+      credentials: true,
+    })
+  );
+
   app.use(express.json());
   // Connect To Database
   connectToDatabase();
 
   // Routes & Endpoints
   app.use("/auth", authRouter);
+
   app.use("/users", userRouter);
   app.get("/", (req, res) => {
     return res.send("Hello World 🚀 !");
@@ -20,6 +29,6 @@ const runServer = (express, app) => {
   });
 
   // Error Middleware
-  app.use(errorMiddleware)
+  app.use(errorMiddleware);
 };
 export default runServer;

@@ -33,7 +33,7 @@ export const googleAuthValidationSchema = {
     .object()
     .keys({
       idToken: joi.string().required(),
-      dob: joi.date(),
+      dob: joi.date().required(),
       phone: joi.string().required(),
     })
     .options({ abortEarly: false }),

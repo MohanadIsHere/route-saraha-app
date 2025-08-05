@@ -124,7 +124,7 @@ export const signin = async (req, res, next) => {
 
 export const googleAuth = async (req, res, next) => {
   try {
-    const { idToken, dob, phone } = req.body;
+    const { idToken, dob, phone } = req.body || {};
 
     const client = new OAuth2Client();
 
@@ -162,6 +162,15 @@ export const googleAuth = async (req, res, next) => {
         profilePicture: picture,
         provider: "google",
       });
+      console.log({ user });
+
+    }
+    if (user.provider !== "google") {
+      const error = new Error(
+        "Cannot signin using google provider, please use the same method that you signed up with the first time"
+      );
+      error.statusCode = 400;
+      throw error;
     }
     const accessToken = generateToken({
       payload: { email },

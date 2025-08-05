@@ -22,7 +22,7 @@ const userSchema = new mongoose.Schema(
       required: true,
       minLength: 5,
     },
-    dob: { type: Date, default: new Date() },
+    dob: { type: Date, required: true },
     gender: {
       type: String,
       enum: ["male", "female"],
@@ -47,7 +47,7 @@ const userSchema = new mongoose.Schema(
       type: String,
       enum: {
         values: ["system", "google"],
-        
+
         message: "{VALUE} is not supported",
       },
       default: "system",
