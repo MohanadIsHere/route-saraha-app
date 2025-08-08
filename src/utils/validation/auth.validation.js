@@ -9,10 +9,27 @@ export const signupValidationSchema = {
       password: joi.string().required().min(6).max(100),
       confirmPassword: joi.string().required().valid(joi.ref("password")),
       phone: joi.string().required(),
-      dob: joi.date(),
+      dob: joi.date().required(),
     })
     .options({
       abortEarly: false,
+    }),
+  file: joi
+    .object()
+    .keys({
+      fieldname: joi.string(),
+      originalname: joi.string(),
+      encoding: joi.string(),
+      mimetype: joi.string(),
+      destination: joi.string(),
+      filename: joi.string(),
+      path: joi.string(),
+      size: joi.number().positive(),
+    })
+    .required()
+    .options({ abortEarly: false })
+    .messages({
+      "any.required": "Image is required",
     }),
 };
 
@@ -33,7 +50,7 @@ export const googleAuthValidationSchema = {
     .object()
     .keys({
       idToken: joi.string().required(),
-      dob: joi.date(),
+      dob: joi.date().required(),
       phone: joi.string().required(),
     })
     .options({ abortEarly: false }),

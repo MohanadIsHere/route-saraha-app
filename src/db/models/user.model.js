@@ -1,5 +1,20 @@
 import mongoose from "mongoose";
 
+export const genders = {
+  male: "male",
+  female: "female",
+};
+
+export const roles = {
+  user: "user",
+  admin: "admin",
+};
+
+export const providers = {
+  system: "system",
+  google: "google",
+};
+
 const userSchema = new mongoose.Schema(
   {
     name: {
@@ -22,36 +37,49 @@ const userSchema = new mongoose.Schema(
       required: true,
       minLength: 5,
     },
-    dob: { type: Date, default: new Date() },
+    dob: { type: Date, required: true },
     gender: {
       type: String,
-      enum: ["male", "female"],
-      default: "male",
+      enum: Object.values(genders),
+      default: genders.male,
       trim: true,
       lowercase: true,
     },
     phone: String,
     role: {
       type: String,
-      enum: ["user", "admin"],
+      enum: Object.values(roles),
       lowercase: true,
-      default: "user",
+      default: roles.user,
     },
     confirmed: {
       type: Boolean,
       default: false,
     },
-    profilePicture: String,
     provider: {
       lowercase: true,
       type: String,
       enum: {
-        values: ["system", "google"],
-        
+        values: Object.values(providers),
+
         message: "{VALUE} is not supported",
       },
-      default: "system",
+      default: providers.system,
     },
+    profilePicture: {
+      public_id: {
+        type: String,
+        required: true
+      },
+      secure_url: {
+        type: String,
+        required: true
+      },
+      display_name: {
+        type: String,
+        required: true
+      },
+    }
   },
   {
     optimisticConcurrency: true,

@@ -1,5 +1,4 @@
-import User from "../../db/models/user.model.js";
-import sendEmail from "../../utils/sendEmail.js";
+import User, { providers } from "../../db/models/user.model.js";
 import { generateToken } from "../../utils/token/token.js";
 import {
   EMAIL,
@@ -7,6 +6,7 @@ import {
   GOOGLE_CLIENT_ID,
   JWT_ACCESS_TOKEN_SECRET,
   JWT_EXPIRES_IN,
+  JWT_REFRESH_TOKEN_EXPIRES_IN,
   JWT_REFRESH_TOKEN_SECRET,
   SALT_ROUNDS,
 } from "../../config/env.js";
@@ -14,18 +14,20 @@ import { compareData, hashData } from "../../utils/hashing/hashing.js";
 import { encryptData } from "../../utils/encryption/encryption.js";
 import { OAuth2Client } from "google-auth-library";
 import { nanoid } from "nanoid";
+import cloudinary from "../../utils/cloudinary/cloudinary.js";
+import { eventEmitter } from "../../utils/events/eventEmitter.js";
 
 export const signup = async (req, res, next) => {
   try {
-    const { email, password, phone } = req.body;
+    const { name, email, password, phone, dob } = req.body || {};
 
     if (await User.findOne({ email })) {
-      const error = new Error("Email already exists");
+      const error = new Error("Email Already exist");
       error.statusCode = 400;
       throw error;
     }
 
-    const hashedPassword = await hashData({
+    const hashed = await hashData({
       plainText: password,
       saltRounds: SALT_ROUNDS,
     });
@@ -34,10 +36,25 @@ export const signup = async (req, res, next) => {
       secret: ENCRYPTION_KEY,
     });
 
+    const { secure_url, public_id, display_name } =
+      await cloudinary.uploader.upload(req?.file?.path, {
+        folder: `route-saraha-app/users/${email}`,
+        filename_override: `${name} profile picture`,
+        use_filename: true,
+        public_id: `${email} profile picture`,
+      });
     const user = await User.create({
-      ...req.body,
-      password: hashedPassword,
+      name,
+      email,
+      password: hashed,
       phone: encryptedPhone,
+      dob: new Date(dob),
+      provider: providers.system,
+      profilePicture: {
+        secure_url,
+        public_id,
+        display_name,
+      },
     });
 
     const accessToken = generateToken({
@@ -48,15 +65,15 @@ export const signup = async (req, res, next) => {
     const refreshToken = generateToken({
       payload: { email },
       secret: JWT_REFRESH_TOKEN_SECRET,
-      options: { expiresIn: JWT_EXPIRES_IN },
+      options: { expiresIn: JWT_REFRESH_TOKEN_EXPIRES_IN },
     });
 
     const link = `http://localhost:3000/users/verify-email?token=${accessToken}`;
 
-    await sendEmail({
+    eventEmitter.emit("sendEmail", {
       from: `"Saraha App" <${EMAIL}>`,
       to: email,
-      subject: "Verify your email – route-saraha-app",
+      subject: "Verify your email – Route-Saraha-App",
       text: "Click the link below to verify your email.",
       html: `<div>click here to verify your account : <a href=${link}>verify</a></div>`,
     });
@@ -81,7 +98,7 @@ export const signin = async (req, res, next) => {
       error.statusCode = 404;
       throw error;
     }
-    if (user.provider !== "system") {
+    if (user.provider !== providers.system) {
       const error = new Error(
         "Cannot signin using system provider , please use the same method that you signed up with the first time"
       );
@@ -107,7 +124,7 @@ export const signin = async (req, res, next) => {
     const refreshToken = generateToken({
       payload: { email },
       secret: JWT_REFRESH_TOKEN_SECRET,
-      options: { expiresIn: JWT_EXPIRES_IN },
+      options: { expiresIn: JWT_REFRESH_TOKEN_EXPIRES_IN },
     });
 
     return res.status(200).json({
@@ -124,7 +141,7 @@ export const signin = async (req, res, next) => {
 
 export const googleAuth = async (req, res, next) => {
   try {
-    const { idToken, dob, phone } = req.body;
+    const { idToken, dob, phone } = req.body || {};
 
     const client = new OAuth2Client();
 
@@ -159,9 +176,20 @@ export const googleAuth = async (req, res, next) => {
         name,
         phone: encryptedPhone,
         dob: new Date(dob),
-        profilePicture: picture,
-        provider: "google",
+        profilePicture: {
+          secure_url: picture,
+          display_name: nanoid(),
+          public_id: nanoid(),
+        },
+        provider: providers.google,
       });
+    }
+    if (user.provider !== providers.google) {
+      const error = new Error(
+        "Cannot signin using google provider, please use the same method that you signed up with the first time"
+      );
+      error.statusCode = 400;
+      throw error;
     }
     const accessToken = generateToken({
       payload: { email },
@@ -171,7 +199,7 @@ export const googleAuth = async (req, res, next) => {
     const refreshToken = generateToken({
       payload: { email },
       secret: JWT_REFRESH_TOKEN_SECRET,
-      options: { expiresIn: JWT_EXPIRES_IN },
+      options: { expiresIn: JWT_REFRESH_TOKEN_EXPIRES_IN },
     });
     return res.status(200).json({
       message: "User signed in successfully",

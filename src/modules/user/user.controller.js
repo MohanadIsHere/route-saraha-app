@@ -1,5 +1,4 @@
 import User from "../../db/models/user.model.js";
-import sendEmail from "../../utils/sendEmail.js";
 import { decryptData } from "../../utils/encryption/encryption.js";
 import {
   EMAIL,
@@ -10,6 +9,7 @@ import {
 import { generateToken, verifyToken } from "../../utils/token/token.js";
 import { customAlphabet } from "nanoid";
 import { hashData } from "../../utils/hashing/hashing.js";
+import { eventEmitter } from "../../utils/events/eventEmitter.js";
 export const getProfile = async (req, res, next) => {
   try {
     const phoneNum = decryptData({
@@ -59,7 +59,7 @@ export const resendConfirmEmail = async (req, res, next) => {
       secret: JWT_ACCESS_TOKEN_SECRET,
     });
     const link = `http://localhost:3000/users/verify-email?token=${accessToken}`;
-    await sendEmail({
+    eventEmitter.emit("sendEmail", {
       from: `"Saraha App" <${EMAIL}>`,
       to: req.user.email,
       subject: "Verify your email – route-saraha-app",
@@ -101,7 +101,7 @@ export const forgetPassword = async (req, res, next) => {
     const otp = customAlphabet("0123456789", 6);
     await User.updateOne({ email: user.email }, { otp });
 
-    await sendEmail({
+    eventEmitter.emit("sendEmail", {
       from: EMAIL,
       to: EMAIL,
       subject: "forgetPassword",
@@ -137,13 +137,13 @@ export const resetPassword = async (req, res, next) => {
       error.statusCode = 400;
       throw error;
     }
-    const hashedPassword = await hashData({
+    const hashed = await hashData({
       plainText: newPassword,
       saltRounds: SALT_ROUNDS,
     });
     await User.updateOne(
       { email: user.email },
-      { $unset: { otp: "" }, password: hashedPassword }
+      { $unset: { otp: "" }, password: hashed }
     );
     return res
       .status(200)
