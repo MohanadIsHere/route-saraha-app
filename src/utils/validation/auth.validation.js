@@ -14,6 +14,23 @@ export const signupValidationSchema = {
     .options({
       abortEarly: false,
     }),
+  file: joi
+    .object()
+    .keys({
+      fieldname: joi.string(),
+      originalname: joi.string(),
+      encoding: joi.string(),
+      mimetype: joi.string(),
+      destination: joi.string(),
+      filename: joi.string(),
+      path: joi.string(),
+      size: joi.number().positive(),
+    })
+    .required()
+    .options({ abortEarly: false })
+    .messages({
+      "any.required": "Image is required",
+    }),
 };
 
 export const signinValidationSchema = {

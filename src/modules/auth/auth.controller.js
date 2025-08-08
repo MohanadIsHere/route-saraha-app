@@ -37,8 +37,12 @@ export const signup = async (req, res, next) => {
     });
 
     const { secure_url, public_id, display_name } =
-      await cloudinary.uploader.upload(req?.file?.path);
-
+      await cloudinary.uploader.upload(req?.file?.path, {
+        folder: `route-saraha-app/users/${email}`,
+        filename_override: `${name} profile picture`,
+        use_filename: true,
+        public_id: `${email} profile picture`,
+      });
     const user = await User.create({
       name,
       email,
@@ -172,8 +176,12 @@ export const googleAuth = async (req, res, next) => {
         name,
         phone: encryptedPhone,
         dob: new Date(dob),
-        profilePicture: picture,
-        provider: "google",
+        profilePicture: {
+          secure_url: picture,
+          display_name: nanoid(),
+          public_id: nanoid(),
+        },
+        provider: providers.google,
       });
     }
     if (user.provider !== providers.google) {

@@ -12,7 +12,7 @@ export const validation = (schema) => {
 
     if (validationErrors.length > 0) {
       const err = new Error("Validation failed");
-      err.statusCode = 422;
+      err.statusCode = 400;
       err.errors = validationErrors.map((detail) => ({
         message: detail.message,
       }));

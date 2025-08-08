@@ -3,6 +3,8 @@ import errorMiddleware from "./middlewares/error.middleware.js";
 import authRouter from "./modules/auth/auth.routes.js";
 import userRouter from "./modules/user/user.routes.js";
 import cors from "cors";
+import "./utils/events/email/sendEmail.js";
+
 
 const runServer = (express, app) => {
   app.use(cors());

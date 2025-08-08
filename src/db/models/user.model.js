@@ -69,17 +69,17 @@ const userSchema = new mongoose.Schema(
     profilePicture: {
       public_id: {
         type: String,
-        required: true,
+        required: true
       },
       secure_url: {
         type: String,
-        required: true,
+        required: true
       },
       display_name: {
         type: String,
-        required: true,
+        required: true
       },
-    },
+    }
   },
   {
     optimisticConcurrency: true,

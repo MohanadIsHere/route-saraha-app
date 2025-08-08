@@ -1,6 +1,6 @@
 import nodemailer from "nodemailer";
-import { EMAIL, PASSWORD } from "../config/env.js";
 import { eventEmitter } from "../eventEmitter.js";
+import { EMAIL, PASSWORD } from "../../../config/env.js";
 
 const sendEmail = async ({ from, to, subject, text, html }) => {
   const transporter = nodemailer.createTransport({
@@ -22,8 +22,8 @@ const sendEmail = async ({ from, to, subject, text, html }) => {
   console.log("Message sent:", info.messageId);
   return info.accepted ? true : false;
 };
-eventEmitter.on("sendEmail", ({ from, to, subject, text, html }) => {
-  sendEmail({ from, to, subject, text, html });
+eventEmitter.on("sendEmail", async ({ from, to, subject, text, html }) => {
+  await sendEmail({ from, to, subject, text, html });
 });
 
 export default sendEmail;

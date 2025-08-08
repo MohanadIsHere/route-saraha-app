@@ -1,5 +1,5 @@
 {
-  "name": "saraha-app",
+  "name": "route-saraha-app",
   "version": "1.0.0",
   "type": "module",
   "main": "app.js",
