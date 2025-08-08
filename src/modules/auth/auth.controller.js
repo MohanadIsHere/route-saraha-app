@@ -74,8 +74,31 @@ export const signup = async (req, res, next) => {
       from: `"Saraha App" <${EMAIL}>`,
       to: email,
       subject: "Verify your email – Route-Saraha-App",
-      text: "Click the link below to verify your email.",
-      html: `<div>click here to verify your account : <a href=${link}>verify</a></div>`,
+      html: `
+    <div style="font-family: 'Segoe UI', sans-serif; background-color: #f5f6fa; padding: 40px;">
+      <div style="max-width: 520px; margin: auto; background: #ffffff; border-radius: 12px; box-shadow: 0 6px 16px rgba(0,0,0,0.08); padding: 32px;">
+        <div style="text-align: center; margin-bottom: 20px;">
+          <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/4f/Email_Icon.svg/768px-Email_Icon.svg.png" alt="Email" style="width: 60px; height: 60px;" />
+        </div>
+        <h1 style="font-size: 22px; color: #222; text-align: center;">Confirm your email</h1>
+        <p style="font-size: 15px; color: #444; text-align: center; margin-bottom: 28px;">
+          Welcome to <b>Route-Saraha-App</b>. Please verify your email to activate your account.
+        </p>
+        <div style="text-align: center; margin-bottom: 28px;">
+          <a href="${link}" style="background-color: #1d72b8; color: #fff; padding: 14px 24px; border-radius: 8px; text-decoration: none; font-weight: 500; display: inline-block;">
+            Verify Email
+          </a>
+        </div>
+        <p style="font-size: 13px; color: #777; text-align: center;">
+          If you didn’t request this, you can ignore this email.
+        </p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 28px 0;">
+        <p style="font-size: 12px; color: #aaa; text-align: center;">
+          © 2025 Route-Saraha-App. All rights reserved.
+        </p>
+      </div>
+    </div>
+  `,
     });
 
     return res.status(201).json({
@@ -153,22 +176,28 @@ export const googleAuth = async (req, res, next) => {
       const payload = ticket.getPayload();
       return payload;
     }
+
     const { name, email, email_verified, picture } = await verify();
+
     if (!email_verified) {
       const error = new Error("Email not verified");
       error.statusCode = 400;
       throw error;
     }
+
     let user = await User.findOne({ email });
+
     if (!user) {
       const hashed = await hashData({
         plainText: nanoid(),
         saltRounds: SALT_ROUNDS,
       });
+
       const encryptedPhone = encryptData({
         plainText: phone,
         secret: ENCRYPTION_KEY,
       });
+
       user = await User.create({
         email,
         confirmed: email_verified,
@@ -183,7 +212,37 @@ export const googleAuth = async (req, res, next) => {
         },
         provider: providers.google,
       });
+
+      // Send welcome email for first-time Google signup
+      eventEmitter.emit("sendEmail", {
+        from: `"Route-Saraha-App" <${EMAIL}>`,
+        to: email,
+        subject: "Welcome to Route-Saraha-App",
+        html: `
+          <div style="font-family: 'Segoe UI', sans-serif; background-color: #f5f6fa; padding: 40px;">
+            <div style="max-width: 520px; margin: auto; background: #ffffff; border-radius: 12px; box-shadow: 0 6px 16px rgba(0,0,0,0.08); padding: 32px;">
+              <div style="text-align: center; margin-bottom: 20px;">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/0b/Check_green_icon.svg/1024px-Check_green_icon.svg.png" alt="Welcome" style="width: 60px; height: 60px;" />
+              </div>
+              <h1 style="font-size: 22px; color: #222; text-align: center;">Welcome, ${
+                name.split(" ")[0]
+              } 👋 !</h1>
+              <p style="font-size: 15px; color: #444; text-align: center; margin-bottom: 28px;">
+                We're glad to have you at <b>Route-Saraha-App</b>. Your account has been created successfully using Google Sign-In.
+              </p>
+              <p style="font-size: 15px; color: #444; text-align: center; margin-bottom: 28px;">
+                You can now log in anytime and start using all features.
+              </p>
+              <hr style="border: none; border-top: 1px solid #eee; margin: 28px 0;">
+              <p style="font-size: 12px; color: #aaa; text-align: center;">
+                © 2025 Route-Saraha-App. All rights reserved.
+              </p>
+            </div>
+          </div>
+        `,
+      });
     }
+
     if (user.provider !== providers.google) {
       const error = new Error(
         "Cannot signin using google provider, please use the same method that you signed up with the first time"
@@ -191,16 +250,19 @@ export const googleAuth = async (req, res, next) => {
       error.statusCode = 400;
       throw error;
     }
+
     const accessToken = generateToken({
       payload: { email },
       secret: JWT_ACCESS_TOKEN_SECRET,
       options: { expiresIn: JWT_EXPIRES_IN },
     });
+
     const refreshToken = generateToken({
       payload: { email },
       secret: JWT_REFRESH_TOKEN_SECRET,
       options: { expiresIn: JWT_REFRESH_TOKEN_EXPIRES_IN },
     });
+
     return res.status(200).json({
       message: "User signed in successfully",
       data: {
@@ -213,6 +275,7 @@ export const googleAuth = async (req, res, next) => {
     next(error);
   }
 };
+
 export const verifyEmail = async (req, res, next) => {
   try {
     const { token } = req.query;
@@ -221,15 +284,47 @@ export const verifyEmail = async (req, res, next) => {
       error.statusCode = 400;
       throw error;
     }
+
     const payload = verifyToken({ token, secret: JWT_ACCESS_TOKEN_SECRET });
     const user = await User.findOne({ email: payload.email, confirmed: false });
+
     if (!user) {
       const error = new Error("User not found or already confirmed");
       error.statusCode = 404;
       throw error;
     }
+
     user.confirmed = true;
     await user.save();
+
+    eventEmitter.emit("sendEmail", {
+      from: `"Route-Saraha-App" <${EMAIL}>`,
+      to: user?.email,
+      subject: "Welcome to Route-Saraha-App",
+      html: `
+          <div style="font-family: 'Segoe UI', sans-serif; background-color: #f5f6fa; padding: 40px;">
+            <div style="max-width: 520px; margin: auto; background: #ffffff; border-radius: 12px; box-shadow: 0 6px 16px rgba(0,0,0,0.08); padding: 32px;">
+              <div style="text-align: center; margin-bottom: 20px;">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/0b/Check_green_icon.svg/1024px-Check_green_icon.svg.png" alt="Welcome" style="width: 60px; height: 60px;" />
+              </div>
+              <h1 style="font-size: 22px; color: #222; text-align: center;">Welcome, ${
+                user.name.split(" ")[0]
+              } 👋 !</h1>
+              <p style="font-size: 15px; color: #444; text-align: center; margin-bottom: 28px;">
+                We're glad to have you at <b>Route-Saraha-App</b>. Your account has been verified successfully.
+              </p>
+              <p style="font-size: 15px; color: #444; text-align: center; margin-bottom: 28px;">
+                You can now log in anytime and start using all features.
+              </p>
+              <hr style="border: none; border-top: 1px solid #eee; margin: 28px 0;">
+              <p style="font-size: 12px; color: #aaa; text-align: center;">
+                © 2025 Route-Saraha-App. All rights reserved.
+              </p>
+            </div>
+          </div>
+        `,
+    });
+
     return res.status(200).json({ message: "Email verified successfully" });
   } catch (error) {
     next(error);
