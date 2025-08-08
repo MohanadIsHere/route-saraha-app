@@ -1,42 +1,51 @@
-import jwt from "jsonwebtoken";
 import User from "../db/models/user.model.js";
-import { ENCRYPTION_KEY, ENCRYPTION_KEY_ADMIN } from "../config/env.js";
+import {
+  JWT_ACCESS_TOKEN_SECRET,
+  JWT_ACCESS_TOKEN_SECRET_ADMIN,
+} from "../config/env.js";
 import { verifyToken } from "../utils/token/token.js";
+
 export const auth = async (req, res, next) => {
   try {
-    const { authorization } = req.headers;
-    const [pre, token] = authorization.split(" ");
+    const { authorization } = req.headers || {};
+
     if (!authorization) {
       const error = new Error("Authorization header is required");
       error.status = 401;
-      return next(error);
+      throw error;
     }
-    if (!pre) {
+
+    const [pre, token] = authorization.split(" ");
+
+    if (!pre || !token) {
       const error = new Error("Invalid token");
       error.status = 400;
-      return next(error);
+      throw error;
     }
+
     let signature = "";
-    if (pre == "bearer") {
-      signature = ENCRYPTION_KEY;
-    } else if (pre == "admin") {
-      signature = ENCRYPTION_KEY_ADMIN;
+    if (pre.toLowerCase() === "bearer") {
+      signature = JWT_ACCESS_TOKEN_SECRET;
+    } else if (pre.toLowerCase() === "admin") {
+      signature = JWT_ACCESS_TOKEN_SECRET_ADMIN;
     } else {
       const error = new Error("Invalid prefix");
       error.status = 400;
-      return next(error);
+      throw error;
     }
+
     const payload = verifyToken({ token, secret: signature });
+
     const user = await User.findOne({ email: payload.email });
     if (!user) {
       const error = new Error("User not found");
       error.status = 404;
-      return next(error);
+      throw error;
     }
+
     req.user = user;
     next();
   } catch (error) {
     next(error);
-    return res.status(500).json({ message: error.message, error });
   }
 };

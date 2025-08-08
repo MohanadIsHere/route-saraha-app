@@ -1,5 +1,5 @@
-import User from "../../db/models/user.model.js";
-import { decryptData } from "../../utils/encryption/encryption.js";
+import User, { genders } from "../../db/models/user.model.js";
+import { decryptData, encryptData } from "../../utils/encryption/encryption.js";
 import {
   EMAIL,
   ENCRYPTION_KEY,
@@ -10,6 +10,7 @@ import { generateToken } from "../../utils/token/token.js";
 import { customAlphabet } from "nanoid";
 import { hashData } from "../../utils/hashing/hashing.js";
 import { eventEmitter } from "../../utils/events/eventEmitter.js";
+import cloudinary from "../../utils/cloudinary/cloudinary.js";
 export const getProfile = async (req, res, next) => {
   try {
     const phoneNum = decryptData({
@@ -33,33 +34,49 @@ export const resendConfirmEmail = async (req, res, next) => {
     if (req.user.confirmed) {
       return res.status(400).json({ message: "Email already confirmed" });
     }
+
     const accessToken = generateToken({
       payload: { email: req.user.email },
       secret: JWT_ACCESS_TOKEN_SECRET,
     });
+
     const link = `http://localhost:3000/users/verify-email?token=${accessToken}`;
+
     eventEmitter.emit("sendEmail", {
-      from: `"Saraha App" <${EMAIL}>`,
+      from: `"Route Saraha App" <${EMAIL}>`,
       to: req.user.email,
       subject: "Verify your email – route-saraha-app",
       text: "Click the link below to verify your email.",
       html: `
-  <div style="font-family: system-ui, sans-serif; background-color: #f9f9f9; padding: 30px;">
-    <div style="max-width: 500px; margin: auto; background: white; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); padding: 30px;">
-      <h1 style="font-size: 22px; margin-bottom: 16px; color: #111;">Confirm your email</h1>
-      <p style="font-size: 15px; color: #555;">Welcome to <b>route-saraha-app</b>. To activate your account, please confirm your email address by clicking the button below.</p>
-      <div style="margin: 24px 0;">
-        <a href="${link}" style="background-color: #1d72b8; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; display: inline-block;">Verify Email</a>
+  <div style="font-family: 'Segoe UI', sans-serif; background-color: #f5f6fa; padding: 40px;">
+    <div style="max-width: 520px; margin: auto; background: #ffffff; border-radius: 12px; box-shadow: 0 6px 16px rgba(0,0,0,0.08); padding: 32px;">
+      <div style="text-align: center; margin-bottom: 24px;">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/Check_green_icon.svg/1024px-Check_green_icon.svg.png" alt="Verify" style="width: 60px; height: 60px; margin-bottom: 12px;" />
+        <h1 style="font-size: 22px; color: #222; margin: 0;">Confirm your email</h1>
       </div>
-      <p style="font-size: 13px; color: #888;">If you didn't request this, you can safely ignore it.</p>
-      <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;">
-      <p style="font-size: 12px; color: #aaa; text-align: center;">© 2025 route-saraha-app</p>
+      <p style="font-size: 15px; color: #444; text-align: center; margin-bottom: 28px;">
+        Thanks for signing up to <b>route-saraha-app</b>. Click the button below to verify your email and activate your account.
+      </p>
+      <div style="text-align: center; margin-bottom: 28px;">
+        <a href="${link}" style="background-color: #1d72b8; color: #fff; padding: 14px 24px; border-radius: 8px; text-decoration: none; font-weight: 500; display: inline-block;">
+          Verify Email
+        </a>
+      </div>
+      <p style="font-size: 13px; color: #777; text-align: center;">
+        If you didn’t request this email, you can ignore it.
+      </p>
+      <hr style="border: none; border-top: 1px solid #eee; margin: 28px 0;">
+      <p style="font-size: 12px; color: #aaa; text-align: center;">
+        © 2025 route-saraha-app. All rights reserved.
+      </p>
     </div>
   </div>
   `,
     });
 
-    return res.status(200).json({ message: "Email sent successfully" });
+    return res
+      .status(200)
+      .json({ message: "Email sent successfully", success: true });
   } catch (error) {
     next(error);
   }
@@ -70,30 +87,53 @@ export const forgetPassword = async (req, res, next) => {
     const { email } = req.body;
 
     const user = await User.findOne({ email });
-
     if (!user) {
-      const error = new Error("email not exist");
+      const error = new Error("Email not exist");
       error.statusCode = 404;
       throw error;
     }
 
-    const otp = customAlphabet("0123456789", 6);
-    await User.updateOne({ email: user.email }, { otp });
+    const generateOtp = customAlphabet("0123456789", 6);
+    const otp = generateOtp();
+
+    await User.updateOne(
+      { email: user.email },
+      { otp, otpExpiresAt: Date.now() + 10 * 60 * 1000 } // ينتهي بعد 10 دقائق
+    );
 
     eventEmitter.emit("sendEmail", {
-      from: EMAIL,
-      to: EMAIL,
-      subject: "forgetPassword",
-      html: `<p>opt: ${otp}</p>`,
+      from: `"Saraha App" <${EMAIL}>`,
+      to: user.email,
+      subject: "Password Reset Code – route-saraha-app",
+      html: `
+        <div style="font-family: 'Segoe UI', sans-serif; background-color: #f5f6fa; padding: 40px;">
+          <div style="max-width: 520px; margin: auto; background: #ffffff; border-radius: 12px; box-shadow: 0 6px 16px rgba(0,0,0,0.08); padding: 32px;">
+            <h1 style="font-size: 22px; color: #222; text-align: center;">Password Reset Code</h1>
+            <p style="font-size: 15px; color: #444; text-align: center; margin-bottom: 28px;">
+              Use the code below to reset your password. This code will expire in 10 minutes.
+            </p>
+            <div style="text-align: center; margin: 20px 0;">
+              <div style="display: inline-block; background-color: #1d72b8; color: white; font-size: 20px; letter-spacing: 4px; padding: 12px 20px; border-radius: 8px; font-weight: bold;">
+                ${otp}
+              </div>
+            </div>
+            <p style="font-size: 13px; color: #777; text-align: center;">
+              If you didn’t request this, you can ignore this email.
+            </p>
+          </div>
+        </div>
+      `,
     });
+
     return res.status(200).json({
-      message: "Otp send successfully , please check your email",
+      message: "OTP sent successfully. Please check your email",
       success: true,
     });
   } catch (error) {
     next(error);
   }
 };
+
 export const resetPassword = async (req, res, next) => {
   try {
     const { otp, email, newPassword } = req.body;
@@ -124,6 +164,35 @@ export const resetPassword = async (req, res, next) => {
       { email: user.email },
       { $unset: { otp: "" }, password: hashed }
     );
+
+    eventEmitter.emit("sendEmail", {
+      from: `"Saraha App" <${EMAIL}>`,
+      to: user.email,
+      subject: "Password Updated – route-saraha-app",
+      html: `
+    <div style="font-family: 'Segoe UI', sans-serif; background-color: #f5f6fa; padding: 40px;">
+      <div style="max-width: 520px; margin: auto; background: #ffffff; border-radius: 12px; box-shadow: 0 6px 16px rgba(0,0,0,0.08); padding: 32px;">
+        <div style="text-align: center; margin-bottom: 20px;">
+          <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/42/Green_check_icon_with_gradient.svg/1024px-Green_check_icon_with_gradient.svg.png" alt="Success" style="width: 60px; height: 60px;" />
+        </div>
+        <h1 style="font-size: 22px; color: #222; text-align: center; margin-bottom: 16px;">
+          Your password has been updated
+        </h1>
+        <p style="font-size: 15px; color: #444; text-align: center; margin-bottom: 28px;">
+          This is a confirmation that your password for <b>route-saraha-app</b> has been changed successfully.
+        </p>
+        <p style="font-size: 13px; color: #777; text-align: center;">
+          If you did not make this change, please <a href="http://localhost:3000/users/forget-password" style="color: #1d72b8; text-decoration: none;">reset your password</a> immediately.
+        </p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 28px 0;">
+        <p style="font-size: 12px; color: #aaa; text-align: center;">
+          © 2025 route-saraha-app. All rights reserved.
+        </p>
+      </div>
+    </div>
+  `,
+    });
+
     return res
       .status(200)
       .json({ message: "password updated successfully", success: true });
@@ -131,3 +200,96 @@ export const resetPassword = async (req, res, next) => {
     next(error);
   }
 };
+
+export const updateProfile = async (req, res, next) => {
+  try {
+    const { name, email, dob, gender, phone } = req.body || {};
+
+    if (!email) {
+      const error = new Error("Email is required");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (!name && !dob && !gender && !phone && !req?.file) {
+      const error = new Error("No data provided to update");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      const error = new Error("User does not exist");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (name) user.name = name;
+    if (dob) user.dob = dob;
+    if (gender && Object.values(genders).includes(gender)) {
+      user.gender = gender;
+    }
+    if (phone) {
+      const encryptedPhone = encryptData({
+        plainText: phone,
+        secret: ENCRYPTION_KEY,
+      });
+      user.phone = encryptedPhone;
+    }
+
+    if (req?.file) {
+      if (user?.profilePicture?.public_id) {
+        try {
+          await cloudinary.uploader.destroy(user.profilePicture.public_id);
+        } catch (destroyErr) {
+          console.error("Cloudinary destroy error", destroyErr);
+          next(destroyErr)
+        }
+      }
+
+      const { secure_url, public_id, display_name } =
+        await cloudinary.uploader.upload(req.file.path, {
+          folder: `route-saraha-app/users/${email}`,
+          filename_override: `${user?.name || email} profile picture`,
+          use_filename: true,
+          public_id: `${user?.email} profile picture`,
+          overwrite: true,
+        });
+
+      user.profilePicture = { secure_url, public_id, display_name };
+    }
+
+    await user.save();
+
+    const firstName =
+      user?.name && typeof user.name === "string"
+        ? user.name.trim().split(/\s+/)[0]
+        : "User";
+
+
+    eventEmitter.emit("sendEmail", {
+      from: `"Saraha App" <${EMAIL}>`,
+      to: user.email,
+      subject: "Profile Updated",
+      html: `
+        <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+          <h2 style="color: #4CAF50;">Hello ${firstName} 👋!</h2>
+          <p>Your profile information has been updated successfully.</p>
+          <p>If you did not make this change, please <a href="http://localhost:3000/support">contact support</a> immediately.</p>
+          <br>
+          <p>Best regards,<br>Support Team</p>
+        </div>
+      `,
+    });
+
+    return res.status(200).json({
+      message: "Profile updated successfully",
+      success: true,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+
