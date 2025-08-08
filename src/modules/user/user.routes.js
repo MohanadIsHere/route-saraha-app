@@ -5,7 +5,6 @@ import { refreshAuth } from "../../middlewares/refreshAuth.middleware.js";
 
 const userRouter = Router();
 userRouter.get("/profile", auth, userController.getProfile);
-userRouter.get("/verify-email", userController.verifyEmail);
 userRouter.post("/forget-password",userController.forgetPassword)
 userRouter.put("/reset-password", userController.resetPassword);
 

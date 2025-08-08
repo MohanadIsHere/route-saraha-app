@@ -6,7 +6,7 @@ import {
   JWT_ACCESS_TOKEN_SECRET,
   SALT_ROUNDS,
 } from "../../config/env.js";
-import { generateToken, verifyToken } from "../../utils/token/token.js";
+import { generateToken } from "../../utils/token/token.js";
 import { customAlphabet } from "nanoid";
 import { hashData } from "../../utils/hashing/hashing.js";
 import { eventEmitter } from "../../utils/events/eventEmitter.js";
@@ -27,28 +27,7 @@ export const getProfile = async (req, res, next) => {
     next(error);
   }
 };
-export const verifyEmail = async (req, res, next) => {
-  try {
-    const { token } = req.query;
-    if (!token) {
-      const error = new Error("Token is required");
-      error.statusCode = 400;
-      throw error;
-    }
-    const payload = verifyToken({ token, secret: JWT_ACCESS_TOKEN_SECRET });
-    const user = await User.findOne({ email: payload.email, confirmed: false });
-    if (!user) {
-      const error = new Error("User not found or already confirmed");
-      error.statusCode = 404;
-      throw error;
-    }
-    user.confirmed = true;
-    await user.save();
-    return res.status(200).json({ message: "Email verified successfully" });
-  } catch (error) {
-    next(error);
-  }
-};
+
 export const resendConfirmEmail = async (req, res, next) => {
   try {
     if (req.user.confirmed) {

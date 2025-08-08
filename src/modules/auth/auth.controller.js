@@ -1,5 +1,5 @@
 import User, { providers } from "../../db/models/user.model.js";
-import { generateToken } from "../../utils/token/token.js";
+import { generateToken, verifyToken } from "../../utils/token/token.js";
 import {
   EMAIL,
   ENCRYPTION_KEY,
@@ -68,7 +68,7 @@ export const signup = async (req, res, next) => {
       options: { expiresIn: JWT_REFRESH_TOKEN_EXPIRES_IN },
     });
 
-    const link = `http://localhost:3000/users/verify-email?token=${accessToken}`;
+    const link = `http://localhost:3000/auth/verify-email?token=${accessToken}`;
 
     eventEmitter.emit("sendEmail", {
       from: `"Saraha App" <${EMAIL}>`,
@@ -209,6 +209,28 @@ export const googleAuth = async (req, res, next) => {
         refreshToken,
       },
     });
+  } catch (error) {
+    next(error);
+  }
+};
+export const verifyEmail = async (req, res, next) => {
+  try {
+    const { token } = req.query;
+    if (!token) {
+      const error = new Error("Token is required");
+      error.statusCode = 400;
+      throw error;
+    }
+    const payload = verifyToken({ token, secret: JWT_ACCESS_TOKEN_SECRET });
+    const user = await User.findOne({ email: payload.email, confirmed: false });
+    if (!user) {
+      const error = new Error("User not found or already confirmed");
+      error.statusCode = 404;
+      throw error;
+    }
+    user.confirmed = true;
+    await user.save();
+    return res.status(200).json({ message: "Email verified successfully" });
   } catch (error) {
     next(error);
   }
