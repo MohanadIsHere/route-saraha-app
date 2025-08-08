@@ -1,5 +1,5 @@
-import User from "../../db/models/user.model.js";
-import { decryptData } from "../../utils/encryption/encryption.js";
+import User, { genders } from "../../db/models/user.model.js";
+import { decryptData, encryptData } from "../../utils/encryption/encryption.js";
 import {
   EMAIL,
   ENCRYPTION_KEY,
@@ -10,6 +10,7 @@ import { generateToken } from "../../utils/token/token.js";
 import { customAlphabet } from "nanoid";
 import { hashData } from "../../utils/hashing/hashing.js";
 import { eventEmitter } from "../../utils/events/eventEmitter.js";
+import cloudinary from "../../utils/cloudinary/cloudinary.js";
 export const getProfile = async (req, res, next) => {
   try {
     const phoneNum = decryptData({
@@ -73,7 +74,9 @@ export const resendConfirmEmail = async (req, res, next) => {
   `,
     });
 
-    return res.status(200).json({ message: "Email sent successfully" });
+    return res
+      .status(200)
+      .json({ message: "Email sent successfully", success: true });
   } catch (error) {
     next(error);
   }
@@ -197,3 +200,96 @@ export const resetPassword = async (req, res, next) => {
     next(error);
   }
 };
+
+export const updateProfile = async (req, res, next) => {
+  try {
+    const { name, email, dob, gender, phone } = req.body || {};
+
+    if (!email) {
+      const error = new Error("Email is required");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (!name && !dob && !gender && !phone && !req?.file) {
+      const error = new Error("No data provided to update");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      const error = new Error("User does not exist");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (name) user.name = name;
+    if (dob) user.dob = dob;
+    if (gender && Object.values(genders).includes(gender)) {
+      user.gender = gender;
+    }
+    if (phone) {
+      const encryptedPhone = encryptData({
+        plainText: phone,
+        secret: ENCRYPTION_KEY,
+      });
+      user.phone = encryptedPhone;
+    }
+
+    if (req?.file) {
+      if (user?.profilePicture?.public_id) {
+        try {
+          await cloudinary.uploader.destroy(user.profilePicture.public_id);
+        } catch (destroyErr) {
+          console.error("Cloudinary destroy error", destroyErr);
+          next(destroyErr)
+        }
+      }
+
+      const { secure_url, public_id, display_name } =
+        await cloudinary.uploader.upload(req.file.path, {
+          folder: `route-saraha-app/users/${email}`,
+          filename_override: `${user?.name || email} profile picture`,
+          use_filename: true,
+          public_id: `${user?.email} profile picture`,
+          overwrite: true,
+        });
+
+      user.profilePicture = { secure_url, public_id, display_name };
+    }
+
+    await user.save();
+
+    const firstName =
+      user?.name && typeof user.name === "string"
+        ? user.name.trim().split(/\s+/)[0]
+        : "User";
+
+
+    eventEmitter.emit("sendEmail", {
+      from: `"Saraha App" <${EMAIL}>`,
+      to: user.email,
+      subject: "Profile Updated",
+      html: `
+        <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+          <h2 style="color: #4CAF50;">Hello ${firstName} 👋!</h2>
+          <p>Your profile information has been updated successfully.</p>
+          <p>If you did not make this change, please <a href="http://localhost:3000/support">contact support</a> immediately.</p>
+          <br>
+          <p>Best regards,<br>Support Team</p>
+        </div>
+      `,
+    });
+
+    return res.status(200).json({
+      message: "Profile updated successfully",
+      success: true,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+

@@ -113,7 +113,7 @@ export const signup = async (req, res, next) => {
 
 export const signin = async (req, res, next) => {
   try {
-    const { email, password } = req.body;
+    const { email, password } = req.body || {};
 
     const user = await User.findOne({ email, confirmed: true });
     if (!user) {
