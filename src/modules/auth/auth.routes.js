@@ -5,9 +5,9 @@ import {
   signinValidationSchema,
   signupValidationSchema,
   verifyEmailValidationSchema,
-} from "../../utils/validation/auth.validation.js";
+} from "./auth.validation.js";
 import { validation } from "../../middlewares/validation.middleware.js";
-import { onlineFileUpload } from "../../utils/mutler/multer.js";
+import { onlineFileUpload } from "../../utils/multer/multer.js";
 
 const authRouter = Router();
 
