@@ -9,7 +9,7 @@ export const signupValidationSchema = {
       password: joi.string().required().min(6).max(100),
       confirmPassword: joi.string().required().valid(joi.ref("password")),
       phone: joi.string().required(),
-      dob: joi.date(),
+      dob: joi.date().required(),
     })
     .options({
       abortEarly: false,

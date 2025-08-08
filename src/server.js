@@ -5,12 +5,7 @@ import userRouter from "./modules/user/user.routes.js";
 import cors from "cors";
 
 const runServer = (express, app) => {
-  app.use(
-    cors({
-      origin: "http://localhost:3001",
-      credentials: true,
-    })
-  );
+  app.use(cors());
 
   app.use(express.json());
   // Connect To Database
@@ -21,8 +16,11 @@ const runServer = (express, app) => {
 
   app.use("/users", userRouter);
   app.get("/", (req, res) => {
-    return res.send("Hello World 🚀 !");
-  });
+    return res.json({
+      message: "Welcome to route saraha app 👋🏼!",
+      success: true,
+    });
+  });  
 
   app.use(/(.*)/, (req, res) => {
     return res.status(404).json({ message: "Route not found" });

@@ -6,11 +6,15 @@ import {
   signupValidationSchema,
 } from "../../utils/validation/auth.validation.js";
 import { validation } from "../../middlewares/validation.middleware.js";
+import { onlineFileUpload} from "../../utils/mutler/multer.js";
 
 const authRouter = Router();
 
 authRouter.post(
   "/sign-up",
+  onlineFileUpload({ acceptedPaths: ["image/jpeg", "image/png"] }).single(
+    "image"
+  ),
   validation(signupValidationSchema),
   userController.signup
 );
