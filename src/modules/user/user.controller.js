@@ -241,9 +241,8 @@ export const updateProfile = async (req, res, next) => {
       if (user?.profilePicture?.public_id) {
         try {
           await cloudinary.uploader.destroy(user.profilePicture.public_id);
-        } catch (destroyErr) {
-          console.error("Cloudinary destroy error", destroyErr);
-          next(destroyErr)
+        } catch (error) {
+          next(error);
         }
       }
 
@@ -265,7 +264,6 @@ export const updateProfile = async (req, res, next) => {
       user?.name && typeof user.name === "string"
         ? user.name.trim().split(/\s+/)[0]
         : "User";
-
 
     eventEmitter.emit("sendEmail", {
       from: `"Saraha App" <${EMAIL}>`,
@@ -290,6 +288,43 @@ export const updateProfile = async (req, res, next) => {
     next(error);
   }
 };
+export const deleteUser = async (req, res, next) => {
+  try {
+    if(req?.user?.confirmed === false) {
+      const error = new Error("Account must be confirmed to do this action");
+      error.statusCode = 400;
+      throw error;
+    }
+    await cloudinary.uploader
+      .destroy(req?.user?.profilePicture?.public_id)
+      .catch((error) => next(error));
 
+    const userEmail = req.user.email;
+    const userName = req.user.name || "User";
 
+    await User.deleteOne({ email: userEmail });
+    
 
+    eventEmitter.emit("sendEmail", {
+      from: EMAIL,
+      to: userEmail,
+      subject: "Account Deleted",
+      html: `
+        <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+          <h2>Hello ${userName.split(" ")[0] || "User"} 👋 !</h2>
+          <p>Your account has been deleted successfully.</p>
+          <p>If you did not request this, please contact support immediately.</p>
+          <br>
+          <p>Best regards,<br>Support Team</p>
+        </div>
+      `,
+    });
+
+    return res.status(200).json({
+      message: "User deleted successfully",
+      success: true,
+    });
+  } catch (error) {
+    next(error);
+  }
+};

@@ -19,7 +19,6 @@ const sendEmail = async ({ from, to, subject, text, html }) => {
     html: html || "<b>Hello world?</b>",
   });
 
-  console.log("Message sent:", info.messageId);
   return info.accepted ? true : false;
 };
 eventEmitter.on("sendEmail", async ({ from, to, subject, text, html }) => {

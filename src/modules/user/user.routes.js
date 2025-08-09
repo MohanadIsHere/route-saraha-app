@@ -21,4 +21,5 @@ userRouter.put(
   refreshAuth,
   userController.resendConfirmEmail
 );
+userRouter.delete("/", auth, userController.deleteUser);
 export default userRouter;
