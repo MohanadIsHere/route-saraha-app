@@ -11,12 +11,12 @@ export const validation = (schema) => {
     }
 
     if (validationErrors.length > 0) {
-      const err = new Error("Validation failed");
-      err.statusCode = 400;
-      err.errors = validationErrors.map((detail) => ({
+      const error = new Error("Validation failed");
+      error.statusCode = 400;
+      error.errors = validationErrors.map((detail) => ({
         message: detail.message,
       }));
-      return next(err);
+      return next(error);
     }
 
     next();

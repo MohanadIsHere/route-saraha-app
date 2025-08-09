@@ -1,52 +1,63 @@
+import { NODE_ENV } from "../config/env.js";
+
 const errorMiddleware = (err, req, res, next) => {
   try {
     let error = { ...err };
     error.message = err.message;
 
-    // Mongoose bad ObjectId
-    if (err.name === "ValidationError") {
+    // Mongoose CastError (bad ObjectId)
+    if (err.name === "CastError") {
       const message = "Resource not found";
       error = new Error(message);
       error.statusCode = 404;
     }
 
     // Mongoose duplicate key
-    if (err.code === 11000) {
-      const message = "Duplicate field value entered";
+    else if (err.code === 11000) {
+      const field = Object.keys(err.keyPattern)[0];
+      const message = `${field.charAt(0).toUpperCase() + field.slice(1)} already exists`;
       error = new Error(message);
-      error.statusCode = 400;
+      error.statusCode = 409; // Conflict is more appropriate than 400
     }
 
     // Mongoose validation error
-    if (err.name === "ValidationError") {
+    else if (err.name === "ValidationError") {
       const message = Object.values(err.errors).map((val) => val.message);
       error = new Error(message.join(", "));
       error.statusCode = 400;
     }
 
     // JWT token expired
-    if (err.name === "TokenExpiredError") {
+    else if (err.name === "TokenExpiredError") {
       const message = "Your token has expired";
       error = new Error(message);
       error.statusCode = 401;
     }
 
     // JWT invalid token
-    if (err.name === "JsonWebTokenError") {
+    else if (err.name === "JsonWebTokenError") {
       const message = "Invalid token";
       error = new Error(message);
       error.statusCode = 401;
     }
 
+    
+
     res
       .status(error.statusCode || 500)
       .json({
-        message: error.message || "Server Error",
+        message: error.message || "Internal Server Error",
         success: false,
-        errors: error.errors || undefined,
+        errors : error.errors ? error.errors : undefined,
+        stack : NODE_ENV === "development" ? error.stack : undefined
       });
-  } catch (error) {
-    next(error);
+  } catch (catchError) {
+    // Fallback error response
+    console.error('Error in error middleware:', catchError);
+    res.status(500).json({
+      message: "Internal Server Error",
+      success: false
+    });
   }
 };
 export default errorMiddleware;
