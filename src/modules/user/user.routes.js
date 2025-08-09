@@ -1,6 +1,6 @@
 import { Router } from "express";
 import * as userController from "./user.controller.js";
-import { auth } from "../../middlewares/auth.middleware.js";
+import auth from "../../middlewares/auth.middleware.js";
 import { refreshAuth } from "../../middlewares/refreshAuth.middleware.js";
 import { onlineFileUpload } from "../../utils/multer/multer.js";
 

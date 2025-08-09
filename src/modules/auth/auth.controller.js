@@ -16,6 +16,7 @@ import { OAuth2Client } from "google-auth-library";
 import { nanoid } from "nanoid";
 import cloudinary from "../../utils/cloudinary/cloudinary.js";
 import { eventEmitter } from "../../utils/events/eventEmitter.js";
+import RevokeToken from "../../db/models/revokeToken.model.js";
 
 export const signup = async (req, res, next) => {
   try {
@@ -30,7 +31,6 @@ export const signup = async (req, res, next) => {
     const hashed = await hashData({
       plainText: password,
       saltRounds: SALT_ROUNDS,
-      
     });
     const encryptedPhone = encryptData({
       plainText: phone,
@@ -258,7 +258,9 @@ export const googleAuth = async (req, res, next) => {
         </svg>
       </div>
       <h1 style="font-size: 32px; font-weight: 700; color: #1a202c; margin-bottom: 8px;">
-        <span class="gradient-text">Welcome, ${name.split(" ")[0]}</span> <span class="emoji">👋</span><span class="gradient-text">!</span>
+        <span class="gradient-text">Welcome, ${
+          name.split(" ")[0]
+        }</span> <span class="emoji">👋</span><span class="gradient-text">!</span>
       </h1>
       <p style="font-size: 16px; color: #64748b; font-weight: 500;">Your journey begins now</p>
     </div>
@@ -391,6 +393,20 @@ export const verifyEmail = async (req, res, next) => {
     });
 
     return res.status(200).json({ message: "Email verified successfully" });
+  } catch (error) {
+    next(error);
+  }
+};
+export const logout = async (req, res, next) => {
+  try {
+    await RevokeToken.create({
+      jti: req?.jti,
+      userId: req?.user?._id,
+    });
+
+    return res.status(200).json({
+      message: "User logged out successfully",
+    });
   } catch (error) {
     next(error);
   }

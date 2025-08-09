@@ -8,6 +8,7 @@ import {
 } from "./auth.validation.js";
 import { validation } from "../../middlewares/validation.middleware.js";
 import { onlineFileUpload } from "../../utils/multer/multer.js";
+import auth from "../../middlewares/auth.middleware.js";
 
 const authRouter = Router();
 
@@ -34,5 +35,5 @@ authRouter.get(
   validation(verifyEmailValidationSchema),
   userController.verifyEmail
 );
-
+authRouter.post("/logout", auth, userController.logout);
 export default authRouter;

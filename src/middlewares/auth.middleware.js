@@ -1,11 +1,12 @@
 import User from "../db/models/user.model.js";
+import RevokeToken from "../db/models/revokeToken.model.js";
 import {
   JWT_ACCESS_TOKEN_SECRET,
   JWT_ACCESS_TOKEN_SECRET_ADMIN,
 } from "../config/env.js";
 import { verifyToken } from "../utils/token/token.js";
 
-export const auth = async (req, res, next) => {
+const auth = async (req, res, next) => {
   try {
     const { authorization } = req.headers || {};
 
@@ -36,6 +37,13 @@ export const auth = async (req, res, next) => {
 
     const payload = verifyToken({ token, secret: signature });
 
+    const revoked = await RevokeToken.findOne({ jti: payload.jti });
+    if (revoked) {
+      const error = new Error("Token revoked");
+      error.status = 401;
+      throw error;
+    }
+
     const user = await User.findOne({ email: payload.email });
     if (!user) {
       const error = new Error("User not found");
@@ -44,8 +52,10 @@ export const auth = async (req, res, next) => {
     }
 
     req.user = user;
+    req.jti = payload.jti; 
     next();
   } catch (error) {
     next(error);
   }
 };
+export default auth;

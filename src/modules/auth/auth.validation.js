@@ -12,15 +12,17 @@ export const signupValidationSchema = {
       email: joi.string().email().required().messages({
         "any.required": "Email is required",
       }),
-      password: joi.string().required().min(6).max(100).message({
-        "string.min": "Password must be at least 6 characters long",
-        "string.max": "Password must be at most 100 characters long",
-        "any.required": "Password is required",
+      password: joi.string().required().messages({
+        "any.required": "Password is required"
       }),
-      confirmPassword: joi.string().required().valid(joi.ref("password")).messages({
-        "any.required": "Confirm password is required",
-        "any.only": "Confirm password does not match",
-      }),
+      confirmPassword: joi
+        .string()
+        .required()
+        .valid(joi.ref("password"))
+        .messages({
+          "any.required": "Confirm password is required",
+          "any.only": "Confirm password does not match",
+        }),
       phone: joi.string().required().messages({
         "any.required": "Phone number is required",
       }),
@@ -57,9 +59,7 @@ export const signinValidationSchema = {
       email: joi.string().email().messages({
         "any.required": "Email is required",
       }),
-      password: joi.string().min(6).max(100).messages({
-        "string.min": "Password must be at least 6 characters long",
-        "string.max": "Password must be at most 100 characters long",
+      password: joi.string().messages({
         "any.required": "Password is required",
       }),
     })
