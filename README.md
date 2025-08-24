@@ -46,7 +46,7 @@ route-saraha-app/
 
 1. Clone the repository
 ```bash
-git clone https://github.com/your-username/route-saraha-app.git
+git clone https://github.com/MohanadIsHere/route-saraha-app.git
 cd route-saraha-app
 ```
 
