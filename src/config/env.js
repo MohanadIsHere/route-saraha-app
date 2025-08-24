@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 import path from "node:path";
 import process from "process";
-dotenv.config({ path: path.resolve("./.env.dev.local") });
+dotenv.config({ path: path.resolve("./.env") });
 
 export const {
   DB_URI,

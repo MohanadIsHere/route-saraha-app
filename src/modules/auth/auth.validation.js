@@ -2,8 +2,7 @@ import joi from "joi";
 
 export const signupValidationSchema = {
   body: joi
-    .object()
-    .keys({
+    .object({
       name: joi.string().required().min(3).max(60).messages({
         "string.min": "Name must be at least 3 characters long",
         "string.max": "Name must be at most 60 characters long",
@@ -13,7 +12,7 @@ export const signupValidationSchema = {
         "any.required": "Email is required",
       }),
       password: joi.string().required().messages({
-        "any.required": "Password is required"
+        "any.required": "Password is required",
       }),
       confirmPassword: joi
         .string()
@@ -34,8 +33,7 @@ export const signupValidationSchema = {
       abortEarly: false,
     }),
   file: joi
-    .object()
-    .keys({
+    .object({
       fieldname: joi.string(),
       originalname: joi.string(),
       encoding: joi.string(),
@@ -54,8 +52,7 @@ export const signupValidationSchema = {
 
 export const signinValidationSchema = {
   body: joi
-    .object()
-    .keys({
+    .object({
       email: joi.string().email().messages({
         "any.required": "Email is required",
       }),
@@ -70,14 +67,13 @@ export const signinValidationSchema = {
 };
 export const googleAuthValidationSchema = {
   body: joi
-    .object()
-    .keys({
+    .object({
       idToken: joi.string().required().messages({
         "any.required": "Id token is required",
       }),
       dob: joi.date().required().messages({
         "any.required": "Date of birth is required",
-        }),
+      }),
       phone: joi.string().required().messages({
         "any.required": "Phone number is required",
       }),
@@ -86,11 +82,10 @@ export const googleAuthValidationSchema = {
 };
 export const verifyEmailValidationSchema = {
   query: joi
-    .object()
-    .keys({
+    .object({
       token: joi.string().required().messages({
         "any.required": "Token is required",
       }),
     })
-    .options({ abortEarly: false })
+    .options({ abortEarly: false }),
 };

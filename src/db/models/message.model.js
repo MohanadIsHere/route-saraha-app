@@ -7,7 +7,21 @@ const messageSchema = new mongoose.Schema(
       required: true,
       minLength: 1,
     },
+    attachments: {
+      type: [
+        {
+          public_id: String,
+          secure_url: String,
+          asset_id: String,
+        },
+      ],
+    },
     userId: {
+      type: mongoose.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    senderId: {
       type: mongoose.Types.ObjectId,
       ref: "User",
     },
